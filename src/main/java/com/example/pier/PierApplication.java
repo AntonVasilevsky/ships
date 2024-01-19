@@ -23,19 +23,13 @@ public class PierApplication {
         Queue<Ship> redSea = new ArrayDeque<>();
         ShipGenerator shipGenerator = new ShipGenerator();
         BlockingQueue<Ship> tunnel = new ArrayBlockingQueue<>(5);
-        Condition condition = redSeaLock.newCondition();
+        Condition redSeaNotEmpty = redSeaLock.newCondition();
+        Condition tunnelNotFull = mediterraneanLock.newCondition();
 
 
         ExecutorService executorService = Executors.newFixedThreadPool(4);
         executorService.submit(() -> {
-            try {
-                mediterraneanLock.lock();
-                for (int i = 0; i < 100; i++) {
-                    mediterranean.offer(shipGenerator.generateShip());
-                }
-            } finally {
-                mediterraneanLock.unlock();
-            }
+
             while (true) {
                 try {
                     Thread.sleep(4000);
@@ -59,7 +53,7 @@ public class PierApplication {
                     if (tunnel.size() > 4) {
                         mediterraneanLock.unlock();
                         tunnelLock.unlock();
-                        continue;
+                        tunnelNotFull.await();
                     }
                     if (!mediterranean.isEmpty()) {
                         tunnel.offer(mediterranean.poll());
@@ -82,9 +76,10 @@ public class PierApplication {
                     Thread.sleep(1000);
                     tunnelLock.lock();
                     redSeaLock.lock();
-                    redSea.offer(shipGenerator.generateShip());
                     if (!tunnel.isEmpty()) {
                         redSea.offer(tunnel.poll());
+                        redSeaNotEmpty.signal();
+                        tunnelNotFull.signal();
                         System.out.println("Ship is in the red sea now. Red sea size: " + redSea.size());
                     }
                 } catch (InterruptedException e) {
@@ -106,6 +101,10 @@ public class PierApplication {
                 try {
                     Thread.sleep(2000);
                     redSeaLock.lock();
+                    if (redSea.isEmpty()) {
+                        System.out.printf("pier %s awaits till condition \n", pier.getName());
+                        redSeaNotEmpty.await();
+                    }
                     System.out.printf("pier %s takes the lock at \n", pier.getName());
                     Ship ship = null;
                     for (Ship s : redSea
@@ -137,6 +136,10 @@ public class PierApplication {
                     Thread.sleep(2000);
                     redSeaLock.lock();
                     System.out.printf("pier %s takes the lock at \n", pier.getName());
+                    if (redSea.isEmpty()) {
+                        System.out.printf("pier %s awaits till condition \n", pier.getName());
+                        redSeaNotEmpty.await();
+                    }
                     Ship ship = null;
                     for (Ship s : redSea
                     ) {
@@ -166,6 +169,10 @@ public class PierApplication {
                 try {
                     Thread.sleep(2000);
                     redSeaLock.lock();
+                    if (redSea.isEmpty()) {
+                        System.out.printf("pier %s awaits till condition \n", pier.getName());
+                        redSeaNotEmpty.await();
+                    }
                     System.out.printf("pier %s takes the lock at \n", pier.getName());
                     Ship ship = null;
                     for (Ship s : redSea
