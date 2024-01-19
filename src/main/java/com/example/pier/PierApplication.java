@@ -7,6 +7,7 @@ import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.*;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -17,12 +18,12 @@ public class PierApplication {
     public static void main(String[] args) throws InterruptedException {
         Lock mediterraneanLock = new ReentrantLock();
         Lock tunnelLock = new ReentrantLock();
-        Lock redSeaLock = new ReentrantLock();
+        ReentrantLock redSeaLock = new ReentrantLock();
         Queue<Ship> mediterranean = new ArrayDeque<>();
         Queue<Ship> redSea = new ArrayDeque<>();
         ShipGenerator shipGenerator = new ShipGenerator();
         BlockingQueue<Ship> tunnel = new ArrayBlockingQueue<>(5);
-        Pier pier = new Pier();
+        Condition condition = redSeaLock.newCondition();
 
 
         ExecutorService executorService = Executors.newFixedThreadPool(4);
@@ -40,7 +41,7 @@ public class PierApplication {
                     Thread.sleep(4000);
                     mediterraneanLock.lock();
                     mediterranean.offer(shipGenerator.generateShip());
-                  //  System.out.println("A ship comes from mediterranean side");
+                    System.out.println("A ship comes from mediterranean side");
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 } finally {
@@ -62,7 +63,7 @@ public class PierApplication {
                     }
                     if (!mediterranean.isEmpty()) {
                         tunnel.offer(mediterranean.poll());
-                      //  System.out.println("Ship enters the tunnel. Tunnel Size: " + tunnel.size());
+                        System.out.println("Ship enters the tunnel. Tunnel Size: " + tunnel.size());
                     }
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -72,13 +73,16 @@ public class PierApplication {
                 }
             }
         });
+
         executorService.submit(() -> {
+
             // Unloader
             while (true) {
                 try {
-                    Thread.sleep(5000);
+                    Thread.sleep(1000);
                     tunnelLock.lock();
                     redSeaLock.lock();
+                    redSea.offer(shipGenerator.generateShip());
                     if (!tunnel.isEmpty()) {
                         redSea.offer(tunnel.poll());
                         System.out.println("Ship is in the red sea now. Red sea size: " + redSea.size());
@@ -88,24 +92,100 @@ public class PierApplication {
                 } finally {
                     tunnelLock.unlock();
                     redSeaLock.unlock();
-                    System.out.println("Red sea lock released");
+                    boolean locked = redSeaLock.isLocked();
+                    System.out.printf("Unloader in %s releases the lock is locked: %s\n", Thread.currentThread().getName(), locked);
+
                 }
             }
         });
         executorService.submit(() -> {
             // pier
+            Pier pier = new Pier();
+            pier.setName("FRUITS PIER");
             while (true) {
                 try {
+                    Thread.sleep(2000);
                     redSeaLock.lock();
-                    System.out.println("pier takes the lock");
-                    Ship ship = pier.loadShip(Objects.requireNonNull(redSea.poll()));
-                    System.out.println("The ship is unloaded and returns to the sea");
-                    redSea.offer(ship);
+                    System.out.printf("pier %s takes the lock at \n", pier.getName());
+                    Ship ship = null;
+                    for (Ship s : redSea
+                    ) {
+                        if (s.getType().equals("fruits"))
+                            ship = s;
+                    }
+
+                    if (ship != null) {
+                        pier.loadShip(ship);
+                        redSea.offer(ship);
+                        System.out.printf("The TYPE: %s is unloaded and returns to the sea\n", ship.getType());
+                    }
 
                 } finally {
                     redSeaLock.unlock();
-                    System.out.println("pier releases the lock");
+                    boolean locked = redSeaLock.isLocked();
+                    System.out.printf("pier in %s releases the lock at %d, is locked: %s\n", pier.getName(), System.currentTimeMillis(), locked);
                 }
+
+            }
+        });
+        executorService.submit(() -> {
+            // pier
+            Pier pier = new Pier();
+            pier.setName("TOYS PIER");
+            while (true) {
+                try {
+                    Thread.sleep(2000);
+                    redSeaLock.lock();
+                    System.out.printf("pier %s takes the lock at \n", pier.getName());
+                    Ship ship = null;
+                    for (Ship s : redSea
+                    ) {
+                        if (s.getType().equals("toys"))
+                            ship = s;
+                    }
+
+                    if (ship != null) {
+                        pier.loadShip(ship);
+                        redSea.offer(ship);
+                        System.out.printf("The TYPE: %s is unloaded and returns to the sea\n", ship.getType());
+                    }
+
+                } finally {
+                    redSeaLock.unlock();
+                    boolean locked = redSeaLock.isLocked();
+                    System.out.printf("pier in %s releases the lock at %d, is locked: %s\n", pier.getName(), System.currentTimeMillis(), locked);
+                }
+
+            }
+        });
+        executorService.submit(() -> {
+            // pier
+            Pier pier = new Pier();
+            pier.setName("STONES PIER");
+            while (true) {
+                try {
+                    Thread.sleep(2000);
+                    redSeaLock.lock();
+                    System.out.printf("pier %s takes the lock at \n", pier.getName());
+                    Ship ship = null;
+                    for (Ship s : redSea
+                    ) {
+                        if (s.getType().equals("stones"))
+                            ship = s;
+                    }
+
+                    if (ship != null) {
+                        pier.loadShip(ship);
+                        redSea.offer(ship);
+                        System.out.printf("The TYPE: %s is unloaded and returns to the sea\n", ship.getType());
+                    }
+
+                } finally {
+                    redSeaLock.unlock();
+                    boolean locked = redSeaLock.isLocked();
+                    System.out.printf("pier in %s releases the lock at %d, is locked: %s\n", pier.getName(), System.currentTimeMillis(), locked);
+                }
+
             }
         });
 

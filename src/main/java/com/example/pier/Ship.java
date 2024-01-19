@@ -1,9 +1,14 @@
 package com.example.pier;
 
+import lombok.Getter;
+
+@Getter
 public class Ship {
-    private int capacity;
-    public Ship (int capacity) {
+    private final int capacity;
+    private final String type;
+    public Ship (int capacity, String type) {
         this.capacity = capacity;
+        this.type = type;
     }
     @Override
     public int hashCode() {
@@ -15,7 +20,4 @@ public class Ship {
         return this.getClass() == obj.getClass();
     }
 
-    public int getCapacity() {
-        return capacity;
-    }
 }
