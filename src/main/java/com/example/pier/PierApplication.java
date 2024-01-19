@@ -51,8 +51,6 @@ public class PierApplication {
                     mediterraneanLock.lock();
                     tunnelLock.lock();
                     if (tunnel.size() > 4) {
-                        mediterraneanLock.unlock();
-                        tunnelLock.unlock();
                         tunnelNotFull.await();
                     }
                     if (!mediterranean.isEmpty()) {
